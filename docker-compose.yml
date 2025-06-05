@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: otaskpostgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    volumes:
+      -  ./data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 7
+    restart: unless-stopped
+    networks:
+      otask_network:
+      
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: otask
+    ports:
+      - "${PORT}:${PORT}"
+    environment:
+      USE_IN_MEMORY: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - otask_network
+
+  migrate:
+    image: migrate/migrate
+    container_name: migrate
+    volumes:
+      - ./migrations:/migrations
+    command: ["-path", "./migrations", "-database",  "${POSTGRES_STRING}", "up" ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - otask_network
+
+networks:
+  otask_network:
+
+
+
